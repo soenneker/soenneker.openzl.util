@@ -3,6 +3,8 @@ namespace Soenneker.OpenZl.Util.Options;
 /// <summary>Controls output allocation and native verification.</summary>
 public sealed class OpenZlDecompressionOptions
 {
+    internal static readonly OpenZlDecompressionOptions Default = new();
+
     /// <summary>Optional serialized fat dictionary bundle for standard native codecs. Custom codec callbacks are not supported.</summary>
     public ReadOnlyMemory<byte> DictionaryBundle { get; init; }
     /// <summary>Maximum total decoded bytes. This limits outputs, not the native decoder's intermediate allocations.</summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
 using Soenneker.OpenZl.Util.Abstract;
@@ -10,7 +11,15 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
 {
     private readonly object _gate = new();
     private readonly CompressorHandle _handle = new();
-    internal OpenZlCompressor(OpenZlGraph graph) { try { SelectGraph(GetGraph(graph)); } catch { _handle.Dispose(); throw; } }
+    private CompressionContextHandle? _context;
+    private OpenZlGraph? _standardGraph;
+    internal void SelectStandardGraph(OpenZlGraph graph)
+    {
+        if (_standardGraph == graph) return;
+        SelectGraph(GetGraph(graph));
+        _standardGraph = graph;
+    }
+    internal OpenZlCompressor(OpenZlGraph graph) { try { SelectStandardGraph(graph); } catch { _handle.Dispose(); throw; } }
     internal OpenZlCompressor(ReadOnlySpan<byte> data, ReadOnlySpan<byte> bundle)
     {
         try
@@ -114,38 +123,138 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
     private OpenZlGraphReference Registered(uint id) => id == 0 ? throw new OpenZlException(1, "Native graph registration failed.") : new(this, id);
     public void SelectGraph(OpenZlGraphReference graph)
     {
-        lock (_gate) { Alive(); NativeErrors.Check(NativeMethods.ZL_Compressor_selectStartingGraphID(_handle, Id(graph)), r => NativeMethods.ZL_Compressor_getErrorContextString(_handle, r)); }
+        lock (_gate) { Alive(); NativeErrors.Check(NativeMethods.ZL_Compressor_selectStartingGraphID(_handle, Id(graph)), r => NativeMethods.ZL_Compressor_getErrorContextString(_handle, r)); _standardGraph = null; }
     }
-    public byte[] Compress(ReadOnlySpan<byte> data, OpenZlCompressionOptions? options = null) => Compress(new[] { new OpenZlData(data) }, options);
-    public byte[] Compress(IReadOnlyList<OpenZlData> inputs, OpenZlCompressionOptions? options = null)
+    public byte[] Compress(ReadOnlySpan<byte> data, OpenZlCompressionOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(inputs); options ??= new();
-        if (inputs.Count == 0 || inputs.Count > 2048) throw new ArgumentOutOfRangeException(nameof(inputs));
-        if (options.MaxCompressedBytes < 1) throw new ArgumentOutOfRangeException(nameof(options.MaxCompressedBytes));
+        options ??= OpenZlCompressionOptions.Default;
+        Validate(options);
+        int commentSize = options.Comment == null ? 0 : Encoding.UTF8.GetByteCount(options.Comment);
+        int capacity = (int)Math.Min(options.MaxCompressedBytes, Math.Max(64, (long)data.Length + 64 + ((long)data.Length / 32768 + 1) * 16 + commentSize));
         lock (_gate)
         {
-            Alive(); var pinned = new NativeInput?[inputs.Count]; var refs = new nint[inputs.Count]; long total = 0;
+            Alive();
+            while (true)
+            {
+                byte[] buffer = ArrayPool<byte>.Shared.Rent(capacity);
+                try
+                {
+                    if (TryCompressCore(data, buffer.AsSpan(0, capacity), out int written, options)) return buffer.AsSpan(0, written).ToArray();
+                    if (capacity == options.MaxCompressedBytes) throw new OpenZlException(5, "Compressed output exceeds the configured limit.");
+                    capacity = (int)Math.Min(options.MaxCompressedBytes, (long)capacity * 2);
+                }
+                finally { ArrayPool<byte>.Shared.Return(buffer); }
+            }
+        }
+    }
+    public bool TryCompress(ReadOnlySpan<byte> data, Span<byte> destination, out int written, OpenZlCompressionOptions? options = null)
+    {
+        options ??= OpenZlCompressionOptions.Default;
+        Validate(options);
+        if (data.Overlaps(destination)) throw new ArgumentException("Input and output must not overlap.", nameof(destination));
+        lock (_gate)
+        {
+            Alive();
+            return TryCompressCore(data, destination.Slice(0, Math.Min(destination.Length, options.MaxCompressedBytes)), out written, options);
+        }
+    }
+    private bool TryCompressCore(ReadOnlySpan<byte> data, Span<byte> destination, out int written, OpenZlCompressionOptions options)
+    {
+        written = 0;
+        try
+        {
+            CompressionContextHandle ctx = Configure(options);
+            NativeReport result;
+            fixed (byte* src = data, dst = destination) result = NativeMethods.ZL_CCtx_compress(ctx, dst, (nuint)destination.Length, src, (nuint)data.Length);
+            if (result.Code == 5) { ResetContext(); return false; }
+            written = checked((int)NativeErrors.CheckCompression(result, ctx));
+            return true;
+        }
+        catch { ResetContext(); throw; }
+    }
+    private CompressionContextHandle Configure(OpenZlCompressionOptions options)
+    {
+        CompressionContextHandle ctx = _context ??= new CompressionContextHandle();
+        NativeErrors.CheckCompression(NativeMethods.ZL_CCtx_refCompressor(ctx, _handle), ctx);
+        SetParameter(ctx, 2, options.CompressionLevel);
+        SetParameter(ctx, 4, options.FormatVersion);
+        SetParameter(ctx, 5, options.Permissive ? 1 : 2);
+        SetParameter(ctx, 6, options.CompressedChecksum ? 1 : 2);
+        SetParameter(ctx, 7, options.ContentChecksum ? 1 : 2);
+        SetParameter(ctx, 11, options.MinimumStreamSize);
+        SetParameter(ctx, 12, options.StoreOnExpansion ? 1 : 2);
+        if (options.Comment is { } comment)
+        {
+            int length = Encoding.UTF8.GetByteCount(comment);
+            byte[]? rented = length > 1024 ? ArrayPool<byte>.Shared.Rent(length) : null;
+            Span<byte> utf8 = rented == null ? stackalloc byte[length] : rented.AsSpan(0, length);
             try
             {
-                for (int i = 0; i < inputs.Count; i++) { ArgumentNullException.ThrowIfNull(inputs[i]); total = checked(total + inputs[i].Bytes.Length); pinned[i] = new(inputs[i]); refs[i] = pinned[i]!.Handle; }
+                Encoding.UTF8.GetBytes(comment, utf8);
+                fixed (byte* c = utf8) NativeErrors.CheckCompression(NativeMethods.ZL_CCtx_addHeaderComment(ctx, c, (nuint)length), ctx);
+            }
+            finally { if (rented != null) ArrayPool<byte>.Shared.Return(rented); }
+        }
+        return ctx;
+    }
+    private static void SetParameter(CompressionContextHandle ctx, int parameter, int value) => NativeErrors.CheckCompression(NativeMethods.ZL_CCtx_setParameter(ctx, parameter, value), ctx);
+    private static void Validate(OpenZlCompressionOptions options)
+    {
+        if (options.MaxCompressedBytes < 1) throw new ArgumentOutOfRangeException(nameof(options.MaxCompressedBytes));
+    }
+    private void ResetContext() { _context?.Dispose(); _context = null; }
+    public byte[] Compress(IReadOnlyList<OpenZlData> inputs, OpenZlCompressionOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(inputs);
+        options ??= OpenZlCompressionOptions.Default;
+        Validate(options);
+        int count = inputs.Count;
+        if (count == 0 || count > 2048) throw new ArgumentOutOfRangeException(nameof(inputs));
+        lock (_gate)
+        {
+            Alive();
+            var pinned = ArrayPool<NativeInput?>.Shared.Rent(count);
+            Span<nint> refs = stackalloc nint[count];
+            int initialized = 0;
+            long total = 0;
+            try
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    OpenZlData input = inputs[i];
+                    ArgumentNullException.ThrowIfNull(input);
+                    total = checked(total + input.Bytes.Length);
+                    pinned[i] = new NativeInput(input);
+                    initialized++;
+                    refs[i] = pinned[i]!.Handle;
+                }
                 int capacity = (int)Math.Min(options.MaxCompressedBytes, Math.Max(256, total + total / 100 + 65536));
                 while (true)
                 {
-                    using var ctx = new CompressionContextHandle();
-                    nuint Check(NativeReport r) => NativeErrors.Check(r, e => NativeMethods.ZL_CCtx_getErrorContextString(ctx, e));
-                    Check(NativeMethods.ZL_CCtx_refCompressor(ctx, _handle));
-                    void Param(int id, int value) => Check(NativeMethods.ZL_CCtx_setParameter(ctx, id, value));
-                    Param(2, options.CompressionLevel); Param(4, options.FormatVersion); Param(5, options.Permissive ? 1 : 2);
-                    Param(6, options.CompressedChecksum ? 1 : 2); Param(7, options.ContentChecksum ? 1 : 2);
-                    Param(11, options.MinimumStreamSize); Param(12, options.StoreOnExpansion ? 1 : 2);
-                    if (options.Comment is { } comment) { byte[] utf8 = Encoding.UTF8.GetBytes(comment); fixed (byte* c = utf8) Check(NativeMethods.ZL_CCtx_addHeaderComment(ctx, c, (nuint)utf8.Length)); }
-                    byte[] output = new byte[capacity]; NativeReport result;
-                    fixed (byte* dst = output) fixed (nint* src = refs) result = NativeMethods.ZL_CCtx_compressMultiTypedRef(ctx, dst, (nuint)capacity, src, (nuint)refs.Length);
-                    if (result.Code == 5 && capacity < options.MaxCompressedBytes) { capacity = (int)Math.Min(options.MaxCompressedBytes, (long)capacity * 2); continue; }
-                    int written = checked((int)Check(result)); Array.Resize(ref output, written); return output;
+                    byte[] buffer = ArrayPool<byte>.Shared.Rent(capacity);
+                    try
+                    {
+                        CompressionContextHandle ctx = Configure(options);
+                        NativeReport result;
+                        fixed (byte* dst = buffer) fixed (nint* src = refs) result = NativeMethods.ZL_CCtx_compressMultiTypedRef(ctx, dst, (nuint)capacity, src, (nuint)count);
+                        if (result.Code == 5 && capacity < options.MaxCompressedBytes)
+                        {
+                            ResetContext();
+                            capacity = (int)Math.Min(options.MaxCompressedBytes, (long)capacity * 2);
+                            continue;
+                        }
+                        int written = checked((int)NativeErrors.CheckCompression(result, ctx));
+                        return buffer.AsSpan(0, written).ToArray();
+                    }
+                    finally { ArrayPool<byte>.Shared.Return(buffer); }
                 }
             }
-            finally { foreach (var input in pinned) input?.Dispose(); }
+            catch { ResetContext(); throw; }
+            finally
+            {
+                for (int i = 0; i < initialized; i++) { pinned[i]!.Dispose(); pinned[i] = null; }
+                ArrayPool<NativeInput?>.Shared.Return(pinned, clearArray: true);
+            }
         }
     }
     public void LoadDictionaryBundle(ReadOnlySpan<byte> bundle)
@@ -167,5 +276,5 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
             return new ReadOnlySpan<byte>(data, checked((int)size)).ToArray();
         }
     }
-    public void Dispose() { lock (_gate) _handle.Dispose(); }
+    public void Dispose() { lock (_gate) { ResetContext(); _handle.Dispose(); } }
 }

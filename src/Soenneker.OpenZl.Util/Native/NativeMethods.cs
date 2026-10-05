@@ -121,4 +121,14 @@ internal static unsafe class NativeMethods
     internal static extern void ZL_DCtx_refDictLoader(DecompressionContextHandle context, nint loader);
     [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]
     internal static extern NativeReport ZL_Compressor_loadDictBundle(CompressorHandle context, byte* data, nuint size);
+    [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern NativeReport ZL_CCtx_compress(CompressionContextHandle context, byte* dst, nuint capacity, byte* src, nuint size);
+    [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern NativeReport ZL_DCtx_decompress(DecompressionContextHandle context, byte* dst, nuint capacity, byte* src, nuint size);
+    [DllImport("openzl", EntryPoint = "ZL_FrameInfo_getNumOutputs", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern NativeReport FrameInfoGetNumOutputs(nint info);
+    [DllImport("openzl", EntryPoint = "ZL_FrameInfo_getOutputType", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern NativeReport FrameInfoGetOutputType(nint info, int output);
+    [DllImport("openzl", EntryPoint = "ZL_FrameInfo_getDecompressedSize", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern NativeReport FrameInfoGetDecompressedSize(nint info, int output);
 }

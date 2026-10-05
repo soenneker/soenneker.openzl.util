@@ -2,6 +2,8 @@ namespace Soenneker.OpenZl.Util.Options;
 /// <summary>Native compression parameters. Instances are read at the start of an operation.</summary>
 public sealed class OpenZlCompressionOptions
 {
+    internal static readonly OpenZlCompressionOptions Default = new();
+
     /// <summary>Standard graph used by the convenience API.</summary>
     public OpenZlGraph Graph { get; init; } = OpenZlGraph.CompressGeneric;
     /// <summary>Wire format version; the bundled revision supports versions 8 through 27.</summary>

@@ -25,6 +25,8 @@ public interface IOpenZlCompressor : IDisposable
     void SelectGraph(OpenZlGraphReference graph);
     /// <summary>Compresses one serial byte stream. The Graph option is ignored; the selected compressor graph is used.</summary>
     byte[] Compress(ReadOnlySpan<byte> data, OpenZlCompressionOptions? options = null);
+    /// <summary>Compresses a serial stream into caller-owned storage. Returns false with written = 0 when capacity or MaxCompressedBytes is insufficient. Input and output must not overlap. Destination contents are undefined on failure.</summary>
+    bool TryCompress(ReadOnlySpan<byte> data, Span<byte> destination, out int written, OpenZlCompressionOptions? options = null);
     /// <summary>Compresses typed streams together in order. The selected graph must accept the input types and count.</summary>
     byte[] Compress(IReadOnlyList<OpenZlData> inputs, OpenZlCompressionOptions? options = null);
     /// <summary>Loads a serialized fat dictionary bundle for standard codecs.</summary>
