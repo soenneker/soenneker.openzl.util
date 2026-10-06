@@ -50,7 +50,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Soenneker.OpenZl.Linux" Version="$(OpenZlNativeVersion)" PrivateAssets="analyzers;build" />
-        <PackageReference Include="Soenneker.OpenZl.Windows" Version="$(OpenZlNativeVersion)" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Linux" Version="4.0.4" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Windows" Version="4.0.8" PrivateAssets="analyzers;build" />
     </ItemGroup>
 </Project>
