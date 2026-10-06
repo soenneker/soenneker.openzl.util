@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 using System;
 using System.Collections.Generic;
 using Soenneker.OpenZl.Util.Options;

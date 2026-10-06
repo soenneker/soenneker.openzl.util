@@ -68,7 +68,7 @@ internal static unsafe class NativeMethods
     [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]
     internal static extern NativeReport ZL_DCtx_decompressMultiTBuffer(DecompressionContextHandle context, nint* outputs, nuint count, byte* src, nuint size);
     [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]
-    internal static extern OpenZlDataType ZL_TypedBuffer_type(TypedBufferHandle buffer);
+    internal static extern int ZL_TypedBuffer_type(TypedBufferHandle buffer);
     [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]
     internal static extern nuint ZL_TypedBuffer_byteSize(TypedBufferHandle buffer);
     [DllImport("openzl", CallingConvention = CallingConvention.Cdecl)]

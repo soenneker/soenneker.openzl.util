@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 namespace Soenneker.OpenZl.Util.Options;
 /// <summary>Native compression parameters. Instances are read at the start of an operation.</summary>
 public sealed class OpenZlCompressionOptions

@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,10 +19,10 @@ public sealed unsafe class OpenZlUtil : IOpenZlUtil
         if (RuntimeInformation.ProcessArchitecture != Architecture.X64 || (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()))
             throw new PlatformNotSupportedException("Bundled OpenZL libraries support Windows x64 and glibc Linux x64.");
     }
-    public IOpenZlCompressor CreateCompressor(OpenZlGraph graph = OpenZlGraph.CompressGeneric)
+    public IOpenZlCompressor CreateCompressor(OpenZlGraph? graph = null)
     {
         _compressors.ThrowIfDisposed();
-        return new OpenZlCompressor(graph);
+        return new OpenZlCompressor(graph ?? OpenZlGraph.CompressGeneric);
     }
     public IOpenZlCompressor DeserializeCompressor(ReadOnlySpan<byte> data, ReadOnlySpan<byte> dictionaryBundle = default)
     {
@@ -80,7 +81,7 @@ public sealed unsafe class OpenZlUtil : IOpenZlUtil
             try
             {
                 if (NativeErrors.Check(NativeMethods.FrameInfoGetNumOutputs(info)) != 1 ||
-                    NativeErrors.Check(NativeMethods.FrameInfoGetOutputType(info, 0)) != (nuint)OpenZlDataType.Serial)
+                    NativeErrors.Check(NativeMethods.FrameInfoGetOutputType(info, 0)) != (nuint)OpenZlDataType.SerialValue)
                     throw new InvalidDataException("Frame requires typed decompression.");
                 nuint size = NativeErrors.Check(NativeMethods.FrameInfoGetDecompressedSize(info, 0));
                 if (size > (nuint)options.MaxOutputBytes) throw new InvalidDataException("Frame exceeds the configured output limit.");
@@ -137,7 +138,7 @@ public sealed unsafe class OpenZlUtil : IOpenZlUtil
             var outputs = new OpenZlOutputInfo[(int)count]; long total = 0;
             for (int i = 0; i < outputs.Length; i++)
             {
-                var type = (OpenZlDataType)NativeErrors.Check(NativeMethods.ZL_FrameInfo_getOutputType(info, i));
+                var type = OpenZlDataType.FromValue(checked((int)NativeErrors.Check(NativeMethods.ZL_FrameInfo_getOutputType(info, i))));
                 long size = checked((long)NativeErrors.Check(NativeMethods.ZL_FrameInfo_getDecompressedSize(info, i)));
                 long? elements = type == OpenZlDataType.Serial ? size : type == OpenZlDataType.String && version >= 21 ? checked((long)NativeErrors.Check(NativeMethods.ZL_FrameInfo_getNumElts(info, i))) : null;
                 if (type == OpenZlDataType.String && elements == null) throw new InvalidDataException("String frames without element counts cannot be decoded with bounded allocation.");
@@ -173,7 +174,7 @@ public sealed unsafe class OpenZlUtil : IOpenZlUtil
                 var outputs = new OpenZlData[buffers.Length]; long total = 0;
                 for (int i = 0; i < outputs.Length; i++)
                 {
-                    var buffer = buffers[i]!; var type = NativeMethods.ZL_TypedBuffer_type(buffer);
+                    var buffer = buffers[i]!; var type = OpenZlDataType.FromValue(NativeMethods.ZL_TypedBuffer_type(buffer));
                     int size = checked((int)NativeMethods.ZL_TypedBuffer_byteSize(buffer));
                     int count = checked((int)NativeMethods.ZL_TypedBuffer_numElts(buffer));
                     total = checked(total + size);

@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
     private OpenZlGraph? _standardGraph;
     internal void SelectStandardGraph(OpenZlGraph graph)
     {
-        if (_standardGraph == graph) return;
+        if (_standardGraph is not null && _standardGraph == graph) return;
         SelectGraph(GetGraph(graph));
         _standardGraph = graph;
     }
@@ -55,7 +56,7 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
     }
     public OpenZlNodeReference GetNode(OpenZlNode node)
     {
-        lock (_gate) { Alive(); if (!Enum.IsDefined(node) || (uint)node < 2) throw new ArgumentOutOfRangeException(nameof(node)); return new(this, (uint)node); }
+        lock (_gate) { Alive(); if (node is null || !OpenZlNode.IsDefined(node.Value) || node.Value < 2) throw new ArgumentOutOfRangeException(nameof(node)); return new(this, node.Value); }
     }
     public OpenZlNodeReference RegisterStructConversion(int width)
     {
@@ -98,7 +99,7 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
     }
     public OpenZlGraphReference GetGraph(OpenZlGraph graph)
     {
-        lock (_gate) { Alive(); if (!Enum.IsDefined(graph) || (uint)graph < 2) throw new ArgumentOutOfRangeException(nameof(graph)); return new(this, (uint)graph); }
+        lock (_gate) { Alive(); if (graph is null || !OpenZlGraph.IsDefined(graph.Value) || graph.Value < 2) throw new ArgumentOutOfRangeException(nameof(graph)); return new(this, graph.Value); }
     }
     public OpenZlGraphReference RegisterPipeline(ReadOnlySpan<OpenZlNode> nodes, OpenZlGraphReference successor)
     {
@@ -106,7 +107,7 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
         {
             Alive(); if (nodes.IsEmpty) throw new ArgumentException("At least one node is required.", nameof(nodes));
             uint[] ids = new uint[nodes.Length];
-            for (int i = 0; i < ids.Length; i++) { if (!Enum.IsDefined(nodes[i]) || (uint)nodes[i] < 2) throw new ArgumentOutOfRangeException(nameof(nodes)); ids[i] = (uint)nodes[i]; }
+            for (int i = 0; i < ids.Length; i++) { if (nodes[i] is null || !OpenZlNode.IsDefined(nodes[i].Value) || nodes[i].Value < 2) throw new ArgumentOutOfRangeException(nameof(nodes)); ids[i] = nodes[i].Value; }
             fixed (uint* p = ids) return Registered(NativeMethods.ZL_Compressor_registerStaticGraph_fromPipelineNodes1o(_handle, p, (nuint)ids.Length, Id(successor)));
         }
     }
@@ -115,9 +116,9 @@ public sealed unsafe class OpenZlCompressor : IOpenZlCompressor
         ArgumentNullException.ThrowIfNull(successors);
         lock (_gate)
         {
-            Alive(); if (!Enum.IsDefined(node) || (uint)node < 2) throw new ArgumentOutOfRangeException(nameof(node));
+            Alive(); if (node is null || !OpenZlNode.IsDefined(node.Value) || node.Value < 2) throw new ArgumentOutOfRangeException(nameof(node));
             uint[] ids = new uint[successors.Count]; for (int i = 0; i < ids.Length; i++) ids[i] = Id(successors[i]);
-            fixed (uint* p = ids) return Registered(NativeMethods.ZL_Compressor_registerStaticGraph_fromNode(_handle, (uint)node, p, (nuint)ids.Length));
+            fixed (uint* p = ids) return Registered(NativeMethods.ZL_Compressor_registerStaticGraph_fromNode(_handle, node.Value, p, (nuint)ids.Length));
         }
     }
     private OpenZlGraphReference Registered(uint id) => id == 0 ? throw new OpenZlException(1, "Native graph registration failed.") : new(this, id);

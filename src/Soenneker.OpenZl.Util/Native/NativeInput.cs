@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 using System;
 using System.Buffers;
 namespace Soenneker.OpenZl.Util.Native;
@@ -12,12 +13,12 @@ internal sealed unsafe class NativeInput : IDisposable
         try
         {
             _bytes = data.Bytes.Pin(); _lengths = data.StringLengths.Pin();
-            Handle = data.Type switch
+            Handle = data.Type.Value switch
             {
-                OpenZlDataType.Serial => NativeMethods.ZL_TypedRef_createSerial(_bytes.Pointer, (nuint)data.Bytes.Length),
-                OpenZlDataType.Struct => NativeMethods.ZL_TypedRef_createStruct(_bytes.Pointer, (nuint)data.ElementWidth, (nuint)data.Count),
-                OpenZlDataType.Numeric => NativeMethods.ZL_TypedRef_createNumeric(_bytes.Pointer, (nuint)data.ElementWidth, (nuint)data.Count),
-                OpenZlDataType.String => NativeMethods.ZL_TypedRef_createString(_bytes.Pointer, (nuint)data.Bytes.Length, (uint*)_lengths.Pointer, (nuint)data.Count),
+                OpenZlDataType.SerialValue => NativeMethods.ZL_TypedRef_createSerial(_bytes.Pointer, (nuint)data.Bytes.Length),
+                OpenZlDataType.StructValue => NativeMethods.ZL_TypedRef_createStruct(_bytes.Pointer, (nuint)data.ElementWidth, (nuint)data.Count),
+                OpenZlDataType.NumericValue => NativeMethods.ZL_TypedRef_createNumeric(_bytes.Pointer, (nuint)data.ElementWidth, (nuint)data.Count),
+                OpenZlDataType.StringValue => NativeMethods.ZL_TypedRef_createString(_bytes.Pointer, (nuint)data.Bytes.Length, (uint*)_lengths.Pointer, (nuint)data.Count),
                 _ => throw new ArgumentOutOfRangeException(nameof(data))
             };
             if (Handle == 0) throw new OutOfMemoryException("Native typed input allocation failed.");

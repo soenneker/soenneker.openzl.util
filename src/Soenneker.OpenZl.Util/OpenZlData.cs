@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 using System;
 namespace Soenneker.OpenZl.Util;
 /// <summary>An owned typed stream. Numeric bytes use native endianness; the bundled platforms are little-endian.</summary>
@@ -14,9 +15,10 @@ public sealed class OpenZlData
     /// <summary>Number of elements.</summary>
     public int Count => Type == OpenZlDataType.String ? StringLengths.Length : Bytes.Length / ElementWidth;
     /// <summary>Copies and validates stream data and dimensions.</summary>
-    public OpenZlData(ReadOnlySpan<byte> bytes, OpenZlDataType type = OpenZlDataType.Serial, int elementWidth = 1, ReadOnlySpan<uint> stringLengths = default)
+    public OpenZlData(ReadOnlySpan<byte> bytes, OpenZlDataType? type = null, int elementWidth = 1, ReadOnlySpan<uint> stringLengths = default)
     {
-        if (!Enum.IsDefined(type)) throw new ArgumentOutOfRangeException(nameof(type));
+        type ??= OpenZlDataType.Serial;
+        if (!OpenZlDataType.IsDefined(type.Value)) throw new ArgumentOutOfRangeException(nameof(type));
         if (type == OpenZlDataType.String)
         {
             long total = 0; foreach (uint n in stringLengths) total += n;

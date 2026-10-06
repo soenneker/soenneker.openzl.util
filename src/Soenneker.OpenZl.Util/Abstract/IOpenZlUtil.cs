@@ -1,3 +1,4 @@
+using Soenneker.OpenZl.Util.Enums;
 using System;
 using System.Collections.Generic;
 using Soenneker.OpenZl.Util.Options;
@@ -7,7 +8,7 @@ namespace Soenneker.OpenZl.Util.Abstract;
 public interface IOpenZlUtil : IDisposable
 {
     /// <summary>Creates an owned compressor using a standard graph.</summary>
-    IOpenZlCompressor CreateCompressor(OpenZlGraph graph = OpenZlGraph.CompressGeneric);
+    IOpenZlCompressor CreateCompressor(OpenZlGraph? graph = null);
     /// <summary>Loads a serialized native graph configuration, optionally resolving a fat dictionary bundle.</summary>
     IOpenZlCompressor DeserializeCompressor(ReadOnlySpan<byte> data, ReadOnlySpan<byte> dictionaryBundle = default);
     /// <summary>Compresses a single serial byte stream.</summary>
