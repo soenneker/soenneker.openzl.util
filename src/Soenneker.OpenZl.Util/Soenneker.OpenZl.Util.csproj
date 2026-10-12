@@ -46,11 +46,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Gen.EnumValues" Version="4.0.53" />
+        <PackageReference Include="Soenneker.Gen.EnumValues" Version="4.0.54" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Soenneker.OpenZl.Linux" Version="4.0.4" PrivateAssets="analyzers;build" />
-        <PackageReference Include="Soenneker.OpenZl.Windows" Version="4.0.8" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Linux" Version="4.0.5" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Windows" Version="4.0.16" PrivateAssets="analyzers;build" />
     </ItemGroup>
 </Project>
