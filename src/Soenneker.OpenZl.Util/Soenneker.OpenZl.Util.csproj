@@ -47,10 +47,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Gen.EnumValues" Version="4.0.64" />
+        <PackageReference Include="Soenneker.Gen.EnumValues" Version="11.0.65" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Soenneker.OpenZl.Linux" Version="4.0.12" PrivateAssets="analyzers;build" />
-        <PackageReference Include="Soenneker.OpenZl.Windows" Version="4.0.37" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Linux" Version="11.0.13" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Windows" Version="11.0.38" PrivateAssets="analyzers;build" />
     </ItemGroup>
 </Project>
