@@ -52,6 +52,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Soenneker.OpenZl.Linux" Version="11.0.15" PrivateAssets="analyzers;build" />
-        <PackageReference Include="Soenneker.OpenZl.Windows" Version="11.0.42" PrivateAssets="analyzers;build" />
+        <PackageReference Include="Soenneker.OpenZl.Windows" Version="11.0.43" PrivateAssets="analyzers;build" />
     </ItemGroup>
 </Project>
