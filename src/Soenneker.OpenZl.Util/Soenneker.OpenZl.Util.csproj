@@ -48,7 +48,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Gen.EnumValues" Version="11.0.66" />
+        <PackageReference Include="Soenneker.Gen.EnumValues" Version="11.0.67" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Soenneker.OpenZl.Linux" Version="11.0.31" PrivateAssets="analyzers;build" />
